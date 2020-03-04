@@ -2,12 +2,13 @@
 /*
  *  FakeIt - A Simplified C++ Mocking Framework
  *  Copyright (c) Eran Pe'er 2013
- *  Generated: 2019-06-01 12:15:07.986646
+ *  Generated: 2019-10-18 14:29:08.645463
  *  Distributed under the MIT License. Please refer to the LICENSE file at:
  *  https://github.com/eranpeer/FakeIt
  */
 
-
+#ifndef fakeit_h__
+#define fakeit_h__
 
 
 
@@ -1116,139 +1117,62 @@ namespace fakeit {
 
     };
 }
-#include <string>
-#include <sstream>
-#include <iomanip>
 
 namespace fakeit {
 
-    template<typename T>
-    static std::string to_string(const T &n) {
-        std::ostringstream stm;
-        stm << n;
-        return stm.str();
-    }
+	struct CuteAdapter : public EventHandler {
+		virtual ~CuteAdapter() = default;
 
-}
+		CuteAdapter(EventFormatter &formatter)
+			: _formatter(formatter) {
+		}
 
-namespace fakeit {
-
-    struct VerificationException : public std::exception {
-        virtual ~VerificationException() NO_THROWS{};
-
-        VerificationException(std::string format) :
-            _format(format) {
+		virtual void handle(const UnexpectedMethodCallEvent &evt) override {
+			std::string format = _formatter.format(evt);
+			throw std::string(format);
         }
 
-        friend std::ostream &operator<<(std::ostream &os, const VerificationException &val) {
-            os << val.what();
-            return os;
+		virtual void handle(const SequenceVerificationEvent &evt) override {
+			std::string format(_formatter.format(evt));
+			throw cute::test_failure(format, evt.file(), evt.line());
+
         }
 
-        void setFileInfo(std::string aFile, int aLine, std::string aCallingMethod) {
-            _file = aFile;
-            _callingMethod = aCallingMethod;
-            _line = aLine;
+		virtual void handle(const NoMoreInvocationsVerificationEvent &evt) override {
+			std::string format = _formatter.format(evt);
+			throw cute::test_failure(format, evt.file(), evt.line());
         }
 
-        const std::string& file() const {
-            return _file;
-        }
-        int line() const {
-            return _line;
-        }
-        const std::string& callingMethod() const {
-            return _callingMethod;
-        }
+	private:
+		EventFormatter &_formatter;
+	};
 
-        const char* what() const NO_THROWS override{
-            return _format.c_str();
-        }
-    private:
-        std::string _file;
-        int _line;
-        std::string _callingMethod;
-        std::string _format;
-    };
-
-    struct NoMoreInvocationsVerificationException : public VerificationException {
-        NoMoreInvocationsVerificationException(std::string format) :
-            VerificationException(format) {
-        }
-    };
-
-    struct SequenceVerificationException : public VerificationException {
-        SequenceVerificationException(std::string format) :
-            VerificationException(format) {
-        }
-    };
-
-    struct StandaloneAdapter : public EventHandler {
-
-        std::string formatLineNumner(std::string file, int num){
-#ifndef __GNUG__
-            return file + std::string("(") + fakeit::to_string(num) + std::string(")");
-#else
-            return file + std::string(":") + fakeit::to_string(num);
-#endif
-        }
-
-        virtual ~StandaloneAdapter() = default;
-
-        StandaloneAdapter(EventFormatter &formatter)
-            : _formatter(formatter) {
-        }
-
-        virtual void handle(const UnexpectedMethodCallEvent &evt) override {
-            std::string format = _formatter.format(evt);
-            UnexpectedMethodCallException ex(format);
-            throw ex;
-        }
-
-        virtual void handle(const SequenceVerificationEvent &evt) override {
-            std::string format(formatLineNumner(evt.file(), evt.line()) + ": " + _formatter.format(evt));
-            SequenceVerificationException e(format);
-            e.setFileInfo(evt.file(), evt.line(), evt.callingMethod());
-            throw e;
-        }
-
-        virtual void handle(const NoMoreInvocationsVerificationEvent &evt) override {
-            std::string format(formatLineNumner(evt.file(), evt.line()) + ": " + _formatter.format(evt));
-            NoMoreInvocationsVerificationException e(format);
-            e.setFileInfo(evt.file(), evt.line(), evt.callingMethod());
-            throw e;
-        }
-
-    private:
-        EventFormatter &_formatter;
-    };
-
-    class StandaloneFakeit : public DefaultFakeit {
+    class CuteFakeit : public DefaultFakeit {
 
     public:
-        virtual ~StandaloneFakeit() = default;
+        virtual ~CuteFakeit() = default;
 
-        StandaloneFakeit() : _standaloneAdapter(*this) {
+        CuteFakeit(): _CuteAdapter(*this) {
         }
 
-        static StandaloneFakeit &getInstance() {
-            static StandaloneFakeit instance;
+        static CuteFakeit &getInstance() {
+            static CuteFakeit instance;
             return instance;
         }
 
     protected:
 
         fakeit::EventHandler &accessTestingFrameworkAdapter() override {
-            return _standaloneAdapter;
+            return _CuteAdapter;
         }
 
     private:
 
-        StandaloneAdapter _standaloneAdapter;
+        CuteAdapter _CuteAdapter;
     };
 }
 
-static fakeit::DefaultFakeit& Fakeit = fakeit::StandaloneFakeit::getInstance();
+static fakeit::DefaultFakeit& Fakeit = fakeit::CuteFakeit::getInstance();
 
 
 #include <type_traits>
@@ -8852,6 +8776,20 @@ namespace fakeit {
         }
     };
 }
+#include <string>
+#include <sstream>
+#include <iomanip>
+
+namespace fakeit {
+
+    template<typename T>
+    static std::string to_string(const T &n) {
+        std::ostringstream stm;
+        stm << n;
+        return stm.str();
+    }
+
+}
 
 
 namespace fakeit {
@@ -9358,3 +9296,5 @@ namespace fakeit {
 #define When(call) \
     When(call)
 
+
+#endif
